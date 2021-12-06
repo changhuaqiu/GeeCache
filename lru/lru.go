@@ -17,14 +17,13 @@ type entry struct {
 
 type Value interface {
 	Len() int
-
 }
 
-fun New(maxBytes int64, OnEvicted func(string,Value) *Cache){
+func New(maxBytes int64, OnEvicted func(string, Value)) *Cache {
 	return &Cache{
-		maxBytes : maxBytes
-		ll:		   list.New(),
-		cache:	   make(map[string]*list.Element),
+		maxBytes:  maxBytes,
+		ll:        list.New(),
+		cache:     make(map[string]*list.Element),
 		OnEvicted: OnEvicted,
 	}
 }
@@ -32,37 +31,43 @@ fun New(maxBytes int64, OnEvicted func(string,Value) *Cache){
 func (c *Cache) Get(key string) (value Value, ok bool) {
 	if ele, ok := c.cache[key]; ok {
 		c.ll.MoveToFront(ele)
-		kv := ele.Value(*entry)
+		kv := ele.Value.(*entry)
 		return kv.value, true
 	}
 	return
 }
 
-func(c *Cache)RemoveOldest(){
-	ele := c.ll.back();
+func (c *Cache) RemoveOldest() {
+	ele := c.ll.Back()
 	if ele != nil {
-		c.ll.remove(ele)
+		c.ll.Remove(ele)
 		kv := ele.Value.(*entry)
-		delete(c.cache,kv.key)
-		c.nbytes -= int64(len(kv.key)) +  int64(kv.Value.Len())
+		delete(c.cache, kv.key)
+		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
 		if c.OnEvicted != nil {
-			c.OnEvicted(kv.key,kv.Value)
+			c.OnEvicted(kv.key, kv.value)
 		}
 	}
 }
+
 //新增 修改
-func(c *Cache) Add (key string,value Value){
-	if ele ,ok := c.cache[key]; ok{
+func (c *Cache) Add(key string, value Value) {
+	if ele, ok := c.cache[key]; ok {
 		c.ll.MoveToFront(ele)
-		kv := ele.Vlaue.(*entry)
-		c.nbytes  += int64(value.Len()) - int(kv.value.Len())
+		kv := ele.Value.(*entry)
+		c.nbytes += int64(value.Len()) - int64(kv.value.Len())
 		kv.value = value
-	}else{
-		ele := c.ll.PushFront(&entry{key,value})
-		c.cache[key] = value
-		c.nbytes += int64(value.Len()) + int64(len(kv.key))
+	} else {
+		ele := c.ll.PushFront(&entry{key, value})
+		c.cache[key] = ele
+		c.nbytes += int64(value.Len()) + int64(len(key))
 	}
-	for c.nbytes != 0 && c.maxBytes < c.nbytes{
+	for c.nbytes != 0 && c.maxBytes < c.nbytes {
 		c.RemoveOldest()
 	}
+}
+
+// Len the number of cache entries
+func (c *Cache) Len() int {
+	return c.ll.Len()
 }
